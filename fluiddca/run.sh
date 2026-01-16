@@ -57,25 +57,34 @@ run_with_retry() {
     local max_attempts=3
     local attempt=1
     local delays=(30 60 120)
+    local exit_code
 
     while [ $attempt -le $max_attempts ]; do
-        if "$@"; then
+        # Run command and capture exit code explicitly
+        "$@"
+        exit_code=$?
+
+        # Exit code 0 = success
+        if [ $exit_code -eq 0 ]; then
             return 0
         fi
-        local exit_code=$?
 
         # Exit code 2 = balance below threshold (not a retry-able error)
         if [ $exit_code -eq 2 ]; then
+            bashio::log.debug "Exit code 2: no retry needed (balance below threshold)"
             return 2
         fi
 
+        # Other failures: retry with backoff
         if [ $attempt -lt $max_attempts ]; then
             local delay=${delays[$((attempt-1))]}
-            bashio::log.warning "Attempt $attempt failed, retrying in ${delay}s..."
-            sleep $delay
+            bashio::log.warning "Attempt $attempt failed (exit code $exit_code), retrying in ${delay}s..."
+            sleep "$delay"
         fi
         ((attempt++))
     done
+
+    bashio::log.error "All $max_attempts attempts failed"
     return 1
 }
 
@@ -83,7 +92,8 @@ run_with_retry() {
 while [ "$SHUTDOWN" = false ]; do
     bashio::log.info "Running DCA check..."
 
-    cd /app || exit 1
+    # Change to app directory (continue even if it fails, will error on npx)
+    cd /app || bashio::log.error "Failed to cd to /app"
 
     # Determine arguments
     EXEC_ARGS=()
@@ -94,36 +104,40 @@ while [ "$SHUTDOWN" = false ]; do
     # Capture output for notification details
     EXEC_OUTPUT=$(mktemp)
 
-    # Run execution with retry
+    # Run execution with retry - capture exit code before pipe
+    # Note: Using a temp file approach to avoid PIPESTATUS issues
     run_with_retry npx ts-node run-execution.ts "${EXEC_ARGS[@]}" 2>&1 | tee "${EXEC_OUTPUT}"
     EXIT_CODE=${PIPESTATUS[0]}
 
-    if [ $EXIT_CODE -eq 0 ]; then
+    bashio::log.debug "Execution finished with exit code: ${EXIT_CODE}"
+
+    if [ "$EXIT_CODE" -eq 0 ]; then
         bashio::log.info "DCA check completed successfully"
         LAST_STATUS="success"
 
-        # Send success notification
+        # Send success notification (don't let it fail the loop)
         if bashio::var.true "${NOTIFY_ON_SUCCESS}"; then
-            /usr/local/bin/notify.sh success "${EXEC_OUTPUT}"
+            /usr/local/bin/notify.sh success "${EXEC_OUTPUT}" || bashio::log.warning "Failed to send success notification"
         fi
-    elif [ $EXIT_CODE -eq 2 ]; then
+    elif [ "$EXIT_CODE" -eq 2 ]; then
         bashio::log.info "DCA execution not needed (balance below threshold)"
         LAST_STATUS="waiting"
+        # No notification for balance below threshold - this is expected behavior
     else
-        bashio::log.error "DCA execution failed after retries with code ${EXIT_CODE}"
+        bashio::log.error "DCA execution failed with code ${EXIT_CODE}"
         LAST_STATUS="error"
 
-        # Send error notification
+        # Send error notification (don't let it fail the loop)
         if bashio::var.true "${NOTIFY_ON_ERROR}"; then
-            /usr/local/bin/notify.sh error "${EXEC_OUTPUT}" "${EXIT_CODE}"
+            /usr/local/bin/notify.sh error "${EXEC_OUTPUT}" "${EXIT_CODE}" || bashio::log.warning "Failed to send error notification"
         fi
     fi
 
-    rm -f "${EXEC_OUTPUT}"
+    rm -f "${EXEC_OUTPUT}" 2>/dev/null || true
 
-    # Update MQTT sensors
+    # Update MQTT sensors (don't let it fail the loop)
     if bashio::var.true "${MQTT_SENSORS}" && bashio::services.available "mqtt"; then
-        /usr/local/bin/mqtt-sensors.sh update "${LAST_STATUS}"
+        /usr/local/bin/mqtt-sensors.sh update "${LAST_STATUS}" || bashio::log.warning "Failed to update MQTT sensors"
     fi
 
     # Check for shutdown before sleeping
