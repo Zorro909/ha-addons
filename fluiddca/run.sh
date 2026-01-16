@@ -92,28 +92,38 @@ run_with_retry() {
 while [ "$SHUTDOWN" = false ]; do
     bashio::log.info "Running DCA check..."
 
-    # Change to app directory (continue even if it fails, will error on npx)
-    cd /app || bashio::log.error "Failed to cd to /app"
+    # Disable errexit for the execution block - bashio enables it by default
+    # and we need to handle non-zero exit codes ourselves
+    set +e
 
-    # Determine arguments
-    EXEC_ARGS=()
-    if bashio::var.true "${DRY_RUN}"; then
-        EXEC_ARGS+=(--dry-run)
+    # Change to app directory
+    if ! cd /app; then
+        bashio::log.error "Failed to cd to /app"
+        EXIT_CODE=1
+        EXEC_OUTPUT=""
+    else
+        # Determine arguments
+        EXEC_ARGS=()
+        if bashio::var.true "${DRY_RUN}"; then
+            EXEC_ARGS+=(--dry-run)
+        fi
+
+        # Capture output for notification details
+        EXEC_OUTPUT=$(mktemp)
+
+        # Run execution with retry
+        bashio::log.debug "Executing: npx ts-node run-execution.ts ${EXEC_ARGS[*]}"
+        run_with_retry npx ts-node run-execution.ts "${EXEC_ARGS[@]}" > "${EXEC_OUTPUT}" 2>&1
+        EXIT_CODE=$?
+
+        # Show output in logs
+        if [ -f "${EXEC_OUTPUT}" ]; then
+            cat "${EXEC_OUTPUT}"
+        fi
     fi
 
-    # Capture output for notification details
-    EXEC_OUTPUT=$(mktemp)
-
-    # Run execution with retry
-    # Note: Avoid pipe to tee because bashio sets pipefail which causes script exit on non-zero
-    # Instead, redirect to file and cat afterward for logging
-    set +o pipefail 2>/dev/null || true  # Disable pipefail if set
-    run_with_retry npx ts-node run-execution.ts "${EXEC_ARGS[@]}" > "${EXEC_OUTPUT}" 2>&1
-    EXIT_CODE=$?
-    set -o pipefail 2>/dev/null || true  # Re-enable pipefail
-
-    # Show output in logs
-    cat "${EXEC_OUTPUT}"
+    # Re-enable errexit
+    set -e
 
     bashio::log.debug "Execution finished with exit code: ${EXIT_CODE}"
 
@@ -139,7 +149,9 @@ while [ "$SHUTDOWN" = false ]; do
         fi
     fi
 
-    rm -f "${EXEC_OUTPUT}" 2>/dev/null || true
+    if [ -n "${EXEC_OUTPUT}" ]; then
+        rm -f "${EXEC_OUTPUT}" 2>/dev/null || true
+    fi
 
     # Update MQTT sensors (don't let it fail the loop)
     if bashio::var.true "${MQTT_SENSORS}" && bashio::services.available "mqtt"; then
