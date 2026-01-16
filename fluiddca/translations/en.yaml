@@ -1,0 +1,37 @@
+configuration:
+  dca_address:
+    name: DCA Contract Address
+    description: Deployed FluidDCA contract address (0x...)
+  alchemy_api_key:
+    name: Alchemy API Key
+    description: Alchemy API key for Ethereum Mainnet RPC
+  oneinch_api_key:
+    name: 1inch API Key
+    description: 1inch Developer Portal API key for swap quotes
+  private_key:
+    name: Executor Private Key
+    description: Wallet private key (needs ETH for gas, NOT EURe holder)
+  schedule_minutes:
+    name: Schedule Interval
+    description: Run DCA check every N minutes (default 60)
+  dry_run:
+    name: Dry Run Mode
+    description: Simulate execution without sending transactions
+  gas_manager_policy_id:
+    name: Gas Manager Policy ID
+    description: Optional Alchemy Gas Manager policy for sponsored gas
+  mqtt_sensors:
+    name: Enable MQTT Sensors
+    description: Create sensors for DCA status monitoring (requires MQTT)
+  log_level:
+    name: Log Level
+    description: Logging verbosity
+  notify_on_success:
+    name: Notify on Success
+    description: Send notification when DCA transaction executes successfully
+  notify_on_error:
+    name: Notify on Error
+    description: Send notification when DCA execution fails
+  notify_service:
+    name: Notification Service
+    description: "Optional: notify service to use (e.g., notify.matrix_notify). Leave empty for persistent_notification only."

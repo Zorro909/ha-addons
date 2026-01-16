@@ -1,0 +1,41 @@
+name: "FluidDCA Automation"
+version: "1.0.0"
+slug: fluiddca
+description: "Automated DCA execution for FluidDCA smart contract - EURe to USDC/WETH swaps"
+url: "https://github.com/your-repo/crypto-dca"
+arch:
+  - amd64
+  - aarch64
+init: false
+startup: application
+boot: auto
+services:
+  - mqtt:need
+hassio_api: true
+homeassistant_api: true
+options:
+  dca_address: ""
+  alchemy_api_key: ""
+  oneinch_api_key: ""
+  private_key: ""
+  schedule_minutes: 60
+  dry_run: false
+  gas_manager_policy_id: ""
+  mqtt_sensors: true
+  log_level: info
+  notify_on_success: true
+  notify_on_error: true
+  notify_service: ""
+schema:
+  dca_address: str
+  alchemy_api_key: password
+  oneinch_api_key: password
+  private_key: password
+  schedule_minutes: int(5,1440)
+  dry_run: bool
+  gas_manager_policy_id: "password?"
+  mqtt_sensors: bool
+  log_level: "list(trace|debug|info|warning|error)"
+  notify_on_success: bool
+  notify_on_error: bool
+  notify_service: "str?"
