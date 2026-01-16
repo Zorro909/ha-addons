@@ -1,5 +1,5 @@
 name: "FluidDCA Automation"
-version: "1.0.3"
+version: "1.0.4"
 slug: fluiddca
 description: "Automated DCA execution for FluidDCA smart contract - EURe to USDC/WETH swaps"
 url: "https://github.com/your-repo/crypto-dca"

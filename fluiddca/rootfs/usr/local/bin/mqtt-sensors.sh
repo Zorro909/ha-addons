@@ -49,15 +49,30 @@ init_sensors() {
 }
 
 # Update sensor states
+# Status values: executed, low_balance, error
 update_sensors() {
     local status="$1"
 
+    # Always update status
     mqtt_pub "fluiddca/status/state" "${status}" true
-    mqtt_pub "fluiddca/status/last_execution" "$(date -Iseconds)" true
 
-    if [ "${status}" = "success" ] || [ "${status}" = "waiting" ]; then
+    # Only update last_execution timestamp when a transaction was actually sent
+    if [ "${status}" = "executed" ]; then
+        mqtt_pub "fluiddca/status/last_execution" "$(date -Iseconds)" true
+    fi
+
+    # can_execute = true only when balance is sufficient (not low_balance)
+    # "executed" means it was ready and ran
+    # "low_balance" means balance below threshold
+    # "error" means something went wrong (could be various reasons)
+    if [ "${status}" = "executed" ]; then
+        # Just executed, so it was ready
         mqtt_pub "fluiddca/status/can_execute" "true" true
+    elif [ "${status}" = "low_balance" ]; then
+        # Balance below threshold - cannot execute
+        mqtt_pub "fluiddca/status/can_execute" "false" true
     else
+        # Error state - unknown, keep previous value or set false
         mqtt_pub "fluiddca/status/can_execute" "false" true
     fi
 }

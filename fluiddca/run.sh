@@ -128,8 +128,8 @@ while [ "$SHUTDOWN" = false ]; do
     bashio::log.debug "Execution finished with exit code: ${EXIT_CODE}"
 
     if [ "$EXIT_CODE" -eq 0 ]; then
-        bashio::log.info "DCA check completed successfully"
-        LAST_STATUS="success"
+        bashio::log.info "DCA transaction executed successfully"
+        LAST_STATUS="executed"
 
         # Send success notification (don't let it fail the loop)
         if bashio::var.true "${NOTIFY_ON_SUCCESS}"; then
@@ -137,7 +137,7 @@ while [ "$SHUTDOWN" = false ]; do
         fi
     elif [ "$EXIT_CODE" -eq 2 ]; then
         bashio::log.info "DCA execution not needed (balance below threshold)"
-        LAST_STATUS="waiting"
+        LAST_STATUS="low_balance"
         # No notification for balance below threshold - this is expected behavior
     else
         bashio::log.error "DCA execution failed with code ${EXIT_CODE}"
