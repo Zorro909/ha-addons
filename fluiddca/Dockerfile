@@ -9,6 +9,7 @@ RUN apk add --no-cache \
     bash \
     jq \
     bc \
+    git \
     mosquitto-clients
 
 # Install Foundry (cast CLI)
