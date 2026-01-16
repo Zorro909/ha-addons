@@ -11,10 +11,11 @@ RUN apk add --no-cache \
     bc \
     mosquitto-clients
 
-# Install Foundry (cast CLI) - use bash explicitly for installer
+# Install Foundry (cast CLI)
+# Note: installer fails shell detection but still installs foundryup, so we ignore its exit code
 ENV FOUNDRY_DIR=/root/.foundry
 ENV PATH="${FOUNDRY_DIR}/bin:${PATH}"
-RUN curl -L https://foundry.paradigm.xyz | bash -s -- -y && \
+RUN (curl -L https://foundry.paradigm.xyz | bash || true) && \
     foundryup && \
     ln -s /root/.foundry/bin/cast /usr/local/bin/cast
 
