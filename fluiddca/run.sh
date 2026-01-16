@@ -104,10 +104,16 @@ while [ "$SHUTDOWN" = false ]; do
     # Capture output for notification details
     EXEC_OUTPUT=$(mktemp)
 
-    # Run execution with retry - capture exit code before pipe
-    # Note: Using a temp file approach to avoid PIPESTATUS issues
-    run_with_retry npx ts-node run-execution.ts "${EXEC_ARGS[@]}" 2>&1 | tee "${EXEC_OUTPUT}"
-    EXIT_CODE=${PIPESTATUS[0]}
+    # Run execution with retry
+    # Note: Avoid pipe to tee because bashio sets pipefail which causes script exit on non-zero
+    # Instead, redirect to file and cat afterward for logging
+    set +o pipefail 2>/dev/null || true  # Disable pipefail if set
+    run_with_retry npx ts-node run-execution.ts "${EXEC_ARGS[@]}" > "${EXEC_OUTPUT}" 2>&1
+    EXIT_CODE=$?
+    set -o pipefail 2>/dev/null || true  # Re-enable pipefail
+
+    # Show output in logs
+    cat "${EXEC_OUTPUT}"
 
     bashio::log.debug "Execution finished with exit code: ${EXIT_CODE}"
 
